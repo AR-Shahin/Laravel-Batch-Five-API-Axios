@@ -13,10 +13,13 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 # Product API
 
-Route::prefix('products')->controller(ProductController::class)->group(function () {
-    Route::get('index');
-    Route::post('store');
-    Route::get('{product}', 'show');
-    Route::post('update/{product}', 'update');
-    Route::delete('{product}', 'delete');
+Route::controller(ProductController::class)->group(function () {
+    Route::get('products', 'index');
+    Route::post('products', 'store');
+    Route::get('products/{product}', 'show');
+    Route::post('products/update/{product}', 'update');
+    Route::delete('products/{product}', 'delete');
 });
+
+
+// Route::get('products', [ProductController::class, 'index']);
