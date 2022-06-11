@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helper\File;
 use App\Models\Product;
 use Exception;
 use Illuminate\Http\Request;
@@ -27,15 +28,21 @@ class ProductController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'title' => ['required', 'unique:products,title'],
-            'price' => ['required', 'numeric']
+            'price' => ['required', 'numeric'],
+            'image' => ['required', 'mimes:png,jpg,jpeg']
         ]);
 
+        // return $request->file('image')->extension();
         if ($validator->fails()) {
             return sendErrorResponse("Client Side Error!", $validator->errors(), 422);
         }
 
         try {
-            $product = Product::create($validator->validated());
+
+            $data = $validator->validated();
+            $data['image'] = File::upload($request->file('image'), "product");
+
+            $product = Product::create($data);
             return sendSuccessResponse($product, "Data Created Successfully!", 201);
         } catch (Exception $e) {
             return sendErrorResponse("Database Not found", $e->getMessage(), 500);
@@ -59,10 +66,19 @@ class ProductController extends Controller
 
     public function update(Request $request, $product)
     {
-        $validator = Validator::make($request->all(), [
-            'title' => ['required', "unique:products,title,$product"],
-            'price' => ['required', 'numeric']
-        ]);
+        $file = $request->file('image');
+        if ($file) {
+            $validator = Validator::make($request->all(), [
+                'title' => ['required', "unique:products,title,$product"],
+                'price' => ['required', 'numeric'],
+                'image' => ['required', 'mimes:png,jpg,jpeg']
+            ]);
+        } else {
+            $validator = Validator::make($request->all(), [
+                'title' => ['required', "unique:products,title,$product"],
+                'price' => ['required', 'numeric']
+            ]);
+        }
 
         if ($validator->fails()) {
             return sendErrorResponse("Client Side Error!", $validator->errors(), 422);
@@ -70,7 +86,15 @@ class ProductController extends Controller
         try {
             $product = Product::whereId($product)->first();
             if ($product) {
-                $product =  $product->update($validator->validated());
+                if ($file) {
+                    $oldImage = $product->image;
+                    $data = $validator->validated();
+                    $data['image'] = File::upload($request->file('image'), "product");
+                    $product =  $product->update($data);
+                    File::deleteFile($oldImage);
+                } else {
+                    $product =  $product->update($validator->validated());
+                }
                 return sendSuccessResponse($product, "Data Updated Successfully!");
             } else {
                 return sendErrorResponse("Invalid ID", [], 422);
@@ -89,7 +113,10 @@ class ProductController extends Controller
         try {
             $product = Product::whereId($product)->first();
             if ($product) {
+                $img = $product->image;
+                info($img);
                 $product->delete();
+                File::deleteFile($img);
                 return sendSuccessResponse([], "Data Deleted Successfully!");
             } else {
                 return sendErrorResponse("Invalid ID", [], 422);
